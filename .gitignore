@@ -1,0 +1,54 @@
+# Dependencies and package manager caches
+node_modules/
+.pnp/
+.pnp.*
+.npm-cache/
+.pnpm-store/
+.yarn/
+
+# Next.js and build output
+.next/
+out/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment variables (may contain credentials)
+.env
+.env.*
+!.env.example
+*.env
+.env.keys
+
+# Secrets, API keys and private certificates
+secrets/
+.secrets/
+credentials/
+.credentials/
+*.secret
+*.secrets
+*.key
+*.pem
+*.p12
+*.pfx
+*api-key*
+*api_key*
+*apikey*
+*service-account*.json
+*service_account*.json
+credentials.json
+
+# Deployment and local tooling
+.vercel/
+.supabase/
+supabase/.temp/
+supabase/.branches/
+
+# Logs and operating system files
+logs/
+*.log
+.DS_Store
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,48 @@
+{
+  "name": "study-quiz-ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "overrides": {
+    "mammoth": {
+      "argparse": "2.0.1"
+    }
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test:e2e": "playwright test",
+    "gemini:health": "node --conditions=react-server scripts/gemini-health.mjs",
+    "claude:health": "node --conditions=react-server scripts/claude-health.mjs",
+    "test": "node --conditions=react-server --test tests/security-validation.test.mjs tests/auth-errors.test.mjs tests/analysis-validation.test.mjs tests/solver-validation.test.mjs tests/claude-provider.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource/be-vietnam-pro": "5.3.0",
+    "@google/genai": "2.27.0",
+    "@phosphor-icons/react": "2.1.10",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.117.2",
+    "fflate": "0.8.3",
+    "mammoth": "1.13.0",
+    "next": "16.3.8",
+    "openai": "7.30.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "0.0.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.8",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5"
+  }
+}
