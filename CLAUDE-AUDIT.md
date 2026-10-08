@@ -1,5 +1,50 @@
 # Claude solver audit — 2026-10-07
 
+## Tiếp tục milestone — 2026-10-08
+
+- Giữ nguyên THIRD_PARTY_CLAUDE_MODEL=claude-sonnet-5, không thử model khác.
+  Không gọi lại health check hay live AI trong lượt này; dùng xác nhận của
+  người dùng và chỉ kiểm tra cấu hình local, không in key.
+- Parser nhận nhãn không có khoảng trắng (A.Q>0), so khớp case để không nhầm
+  Q với q, giữ raw. Kiểm tra công thức theo dấu/thứ tự, ngoài kiểm tra ký hiệu
+  Unicode; sai khác được đánh dấu cần đối chiếu, không tự suy diễn sửa.
+- Đã hỗ trợ 1–3 lựa chọn bằng prompt + validator + RPC v2. Lựa chọn nguồn phải
+  giữ nguyên tại vị trí cũ cả ở server lẫn DB. Source-answer vẫn không gọi AI.
+  Các câu đã có ai_model lưu trong DB không được claim lại, kể cả regenerate;
+  API từ chối regenerate=true. Câu bất định/invalid đã lưu không tự gọi lại AI.
+- Chuẩn hóa lại các extension đã lưu chạy local, giữ đáp án/choices/model AI,
+  chỉ update khi field thực sự thay đổi, theo timestamp và loại worker đang
+  processing. Dữ liệu nguồn và raw_analysis không bị sửa.
+- Migration bổ sung 20261008085428_complete_partial_mcqs đã áp dụng: thêm
+  claim_document_solver_v2/complete_question_solutions_v2. Không sửa/drop RPC
+  trước, không backfill hay thay đổi tài liệu thực. CLI không tạo migration được
+  vì cố ghi telemetry ngoài project; sử dụng connector, tên phiên bản local
+  lấy từ migration history remote. Generated types đã cập nhật.
+- Lint/typecheck và 19 unit đã đạt. E2E nguồn/câu thiếu choices/cache/RLS đã
+  đạt, dùng 43 câu nguồn + một câu hai lựa chọn synthetic. Đáp án cuối trong
+  test DB được cung cấp bằng fixture synthetic-test-only, không phải Claude
+  thật; không dùng số liệu này để báo kết quả tài liệu người dùng.
+- Chẩn đoán hydration độc lập bằng scripts/diagnose-hydration.mjs: Chrome sạch
+  HTTP 200, 0 hydration errors, 0 injected attrs; cùng trang với bis_register/
+  bis_skin_checked mô phỏng HTTP 200, 1 hydration error, 5 injected attrs.
+  Không suppress/ẩn warning, không sửa/cài/gỡ extension hay profile hệ thống.
+  Chưa loại được cảnh báo ở browser có extension; cần xử lý extension ở browser.
+- Tài liệu hiện tại chưa có URL/documentId/tên xác nhận trong lượt yêu cầu này.
+  Truy vấn lấy danh sách năm tài liệu của nhiều owner bị automatic approval
+  review từ chối vì vượt phạm vi một tài liệu hiện tại. Không thử lách truy vấn;
+  đã hỏi URL Topics hoặc tên file để giới hạn đúng tài liệu. Chưa đọc/chạy Claude
+  hay chuẩn hóa dữ liệu tài liệu thực trong lượt này. Sáu số liệu được yêu cầu
+  chưa xác nhận, không thay bằng số fixture hoặc báo 0.
+- Hồi quy toàn bộ đạt 13 passed / 2 paid live skipped (3.3 phút); production
+  build cuối đã đạt, kể cả TypeScript. 19 unit/lint đạt. Quét 47 production
+  client files không thấy Gemini/Claude key; .env.local ignored/untracked.
+  Server đã khởi động lại ở http://127.0.0.1:3001, /login HTTP 200.
+  Smoke bản cuối sau restart: 2 passed (40.8s), bao gồm chuẩn hóa dữ liệu cũ,
+  partial choices, cache, source preservation, RLS và Chrome sạch. Quét 14 file
+  staged không thấy credential hoặc env bí mật.
+  Kết quả 2026-10-07 bên dưới là bằng chứng lịch sử, không thay thế kiểm thử
+  trên tài liệu thực đang chờ xác nhận.
+
 Gemini tiếp tục trích xuất tài liệu. Claude qua gateway bên thứ ba chỉ giải câu
 chưa có đáp án nguồn. Kiểm tra trực tiếp bằng hai tài khoản synthetic, không dùng
 tài khoản hay tài liệu người dùng thật làm fixture.

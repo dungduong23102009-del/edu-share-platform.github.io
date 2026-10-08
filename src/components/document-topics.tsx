@@ -127,8 +127,11 @@ export function DocumentTopics({ view }: { view: AnalysisView }) {
     (item) => item.topicTitle === null || selected.includes(item.topicTitle),
   );
   const ready = questions.filter((item) => item.quiz_ready).length;
-  const needsAI = solutions.filter((item) =>
-    ["pending", "solver_failed"].includes(item.solver_status),
+  const needsAI = solutions.filter(
+    (item) =>
+      item.ai_model === null &&
+      item.answer_origin === "none" &&
+      ["pending", "solver_failed"].includes(item.solver_status),
   ).length;
   const parsing = solutions.filter(
     (item) =>

@@ -9,8 +9,39 @@ export const ORIGINAL_TYPES = [
   "unknown",
 ] as const;
 export type OriginalType = (typeof ORIGINAL_TYPES)[number];
-const comparable = (value: string) =>
-  value.normalize("NFC").replace(/\s+/g, " ").trim().toLocaleLowerCase("vi");
+const canonical = (value: string) =>
+  value.normalize("NFC").replace(/\s+/g, " ").trim();
+const comparable = (value: string) => canonical(value).toLocaleLowerCase("vi");
+const choiceComparable = (value: string) =>
+  /[=<>≥≤+−±*/^√∫Δ∆Α-Ωα-ω°₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹⁻]|^[A-Za-z]$/.test(canonical(value))
+    ? canonical(value)
+    : comparable(value);
+const choiceBlock =
+  /(?:^|\s)A[.)：:]\s*[\s\S]*(?:^|\s)B[.)：:]\s*[\s\S]*(?:^|\s)C[.)：:]\s*/m;
+export function scientificWarnings(
+  source: string | null | undefined,
+  parsed: string,
+) {
+  if (!source) return [];
+  const tokens =
+    source.match(/[Δ∆Α-Ωα-ω]|≥|≤|→|⇌|±|°C|m\/s²|[⁰¹²³⁴⁵⁶⁷⁸⁹⁻₀-₉]|√|∫|[=<>]/g) ||
+    [];
+  const term = String.raw`(?:[Δ∆]?[A-Za-zΑ-Ωα-ω][A-Za-z0-9_₀-₉⁰¹²³⁴⁵⁶⁷⁸⁹⁻]*|[+-]?\d+(?:[.,]\d+)?)`;
+  const equations =
+    source.match(new RegExp(`${term}(?:\\s*[=<>≥≤+−-]\\s*${term})+`, "g")) ||
+    [];
+  const compact = canonical(parsed).replace(/\s+/g, "");
+  if (
+    tokens.some((token) => !parsed.includes(token)) ||
+    equations.some(
+      (equation) => !compact.includes(canonical(equation).replace(/\s+/g, "")),
+    )
+  )
+    return [
+      "Ký hiệu hoặc công thức khác trích dẫn nguồn; cần kiểm tra, không tự sửa.",
+    ];
+  return [];
+}
 export const CHOICE_KEYS = ["A", "B", "C", "D"] as const;
 export type ChoiceKey = (typeof CHOICE_KEYS)[number];
 
@@ -25,43 +56,34 @@ export function normalizeQuestion(input: {
   const choices = rawChoices.map((choice, index) =>
     choice
       .replace(
-        new RegExp(`^\\s*${String.fromCharCode(65 + index)}[.)：:]\\s+`),
+        new RegExp(`^\\s*${String.fromCharCode(65 + index)}[.)：:]\\s*`),
         "",
       )
       .trim(),
   );
   let questionText = rawQuestionText.trim();
   const warnings: string[] = [];
-  const markers = [...questionText.matchAll(/(?:^|\s)([A-F])[.)：:]\s+/g)];
+  const markers = [...questionText.matchAll(/(?:^|\s)([A-F])[.)：:]\s*/g)];
   // Remove only a complete trailing choice block which matches every source choice.
   // A variable such as A or Q, or an unmatched fragment, is never guessed away.
-  if (choices.length >= 2 && markers.length >= choices.length) {
+  if (choices.length >= 1 && markers.length >= choices.length) {
     const tail = markers.slice(-choices.length);
     const exact = tail.every((marker, index) => {
       const end = tail[index + 1]?.index ?? questionText.length;
       const text = questionText.slice(marker.index! + marker[0].length, end);
       return (
         marker[1] === String.fromCharCode(65 + index) &&
-        comparable(text) === comparable(choices[index])
+        canonical(text) === canonical(choices[index])
       );
     });
     if (exact) questionText = questionText.slice(0, tail[0].index).trim();
   }
-  if (
-    /(?:^|\s)A[.)：:]\s+[\s\S]*(?:^|\s)B[.)：:]\s+[\s\S]*(?:^|\s)C[.)：:]\s+/m.test(
-      questionText,
-    )
-  )
+  if (choiceBlock.test(questionText))
     warnings.push(
       "Lựa chọn còn lẫn trong câu hỏi; cần đối chiếu tài liệu gốc.",
     );
-  const sourceSymbols =
-    input.sourceExcerpt?.match(/ΔU|≥|≤|→|⇌|±|°C|10⁻³|m\/s²|√|∫|[=<>]/g) || [];
   const parsedText = [questionText, ...choices].join(" ");
-  if (sourceSymbols.some((symbol) => !parsedText.includes(symbol)))
-    warnings.push(
-      "Ký hiệu trong câu hỏi khác trích dẫn nguồn; cần kiểm tra, không tự sửa.",
-    );
+  warnings.push(...scientificWarnings(input.sourceExcerpt, parsedText));
   let originalType: OriginalType =
     ORIGINAL_TYPES.includes(input.originalType as OriginalType) &&
     input.originalType !== "unknown"
@@ -73,7 +95,7 @@ export function normalizeQuestion(input: {
       choices.every((choice) => /^(đúng|sai|true|false)$/i.test(choice))
     )
       originalType = "true_false";
-    else if (choices.length >= 2) originalType = "multiple_choice";
+    else if (choices.length >= 1) originalType = "multiple_choice";
     else if (
       /\b(calculate|compute)\b|tính|bao nhiêu|giải phương trình/i.test(
         questionText,
@@ -100,7 +122,7 @@ export function sourceCorrectChoice(
   const trimmed = answer.trim();
   if (/^[A-D]$/i.test(trimmed)) return trimmed.toUpperCase() as ChoiceKey;
   const matches = choices.flatMap((choice, index) =>
-    comparable(choice) === comparable(answer) ? [index] : [],
+    choiceComparable(choice) === choiceComparable(answer) ? [index] : [],
   );
   return matches.length === 1 ? CHOICE_KEYS[matches[0]] : null;
 }
@@ -122,7 +144,9 @@ export function validateQuizQuestion(input: {
     input.choices.some((choice) => !choice.trim())
   )
     errors.push("Cần đủ bốn lựa chọn.");
-  if (new Set(input.choices.map(comparable)).size !== input.choices.length)
+  if (
+    new Set(input.choices.map(choiceComparable)).size !== input.choices.length
+  )
     errors.push("Lựa chọn trùng nhau.");
   if (!CHOICE_KEYS.includes(input.correctChoice as ChoiceKey))
     errors.push("Chưa có đáp án hợp lệ.");
@@ -132,12 +156,7 @@ export function validateQuizQuestion(input: {
     )
   )
     errors.push("Dạng câu hỏi chưa được hỗ trợ.");
-  if (
-    input.parsingWarnings?.length ||
-    /(?:^|\s)A[.)：:]\s+[\s\S]*(?:^|\s)B[.)：:]\s+[\s\S]*(?:^|\s)C[.)：:]\s+/m.test(
-      input.questionText,
-    )
-  )
+  if (input.parsingWarnings?.length || choiceBlock.test(input.questionText))
     errors.push("Cần kiểm tra parsing hoặc ký hiệu.");
   if (
     input.confidence === null ||

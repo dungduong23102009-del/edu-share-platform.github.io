@@ -101,6 +101,24 @@ test("43 source answers need no Claude; pagination, ownership and gateway failur
         )
       ).error,
     ).toBeNull();
+    const legacy = (await (
+      await page.request.get(`/api/documents/${id}/analysis`)
+    ).json()) as AnalysisView;
+    const legacySource = legacy.sourceQuestions.find(
+      (item) => item.question_text === rawQuestion,
+    )!;
+    expect(
+      (
+        await client
+          .from("question_solutions")
+          .update({
+            question_text: rawQuestion,
+            quiz_ready: false,
+            needs_review: true,
+          })
+          .eq("question_id", legacySource.id)
+      ).error,
+    ).toBeNull();
     await page.goto(`/topics?documentId=${id}`);
     await page.getByText("Xem câu hỏi nguồn (43)", { exact: true }).click();
     expect(await page.locator(".analysis-item").count()).toBe(10);
@@ -118,6 +136,10 @@ test("43 source answers need no Claude; pagination, ownership and gateway failur
           item.ai_model === null,
       ),
     ).toBe(true);
+    expect(
+      before.solutions.find((item) => item.question_id === legacySource.id)
+        ?.question_text,
+    ).toBe("2 + 2 = ?");
     const foreignSolutions = await otherClient
       .from("question_solutions")
       .select("question_id")
@@ -125,7 +147,7 @@ test("43 source answers need no Claude; pagination, ownership and gateway failur
     expect(foreignSolutions.error).toBeNull();
     expect(foreignSolutions.data).toEqual([]);
     expect(
-      (await otherClient.rpc("claim_document_solver", { p_document_id: id }))
+      (await otherClient.rpc("claim_document_solver_v2", { p_document_id: id }))
         .data,
     ).toEqual({ action: "not_found" });
     expect(
@@ -188,7 +210,7 @@ test("43 source answers need no Claude; pagination, ownership and gateway failur
           analysis_run_id: run,
           topic_id: topic.id,
           question_text: "Tính 2 + 3.",
-          choices: [],
+          choices: ["4", "5"],
           correct_answer: null,
           answer_origin: "not_provided",
           extraction_confidence: 0.98,
@@ -196,7 +218,22 @@ test("43 source answers need no Claude; pagination, ownership and gateway failur
       ).error,
     ).toBeNull();
     await page.request.get(`/api/documents/${id}/analysis`);
-    const job = await client.rpc("claim_document_solver", {
+    expect(
+      (
+        await client
+          .from("question_solutions")
+          .update({ solver_status: "unsupported" })
+          .eq("question_id", missing)
+      ).error,
+    ).toBeNull();
+    const promoted = (await (
+      await page.request.get(`/api/documents/${id}/analysis`)
+    ).json()) as AnalysisView;
+    expect(
+      promoted.solutions.find((item) => item.question_id === missing)
+        ?.solver_status,
+    ).toBe("pending");
+    const job = await client.rpc("claim_document_solver_v2", {
       p_document_id: id,
     });
     expect(job.error).toBeNull();
@@ -212,11 +249,12 @@ test("43 source answers need no Claude; pagination, ownership and gateway failur
       missing,
     ]);
     expect(
-      (await client.rpc("claim_document_solver", { p_document_id: id })).data,
+      (await client.rpc("claim_document_solver_v2", { p_document_id: id }))
+        .data,
     ).toEqual({ action: "busy" });
     expect(
       (
-        await client.rpc("complete_question_solutions", {
+        await client.rpc("complete_question_solutions_v2", {
           p_document_id: id,
           p_run_id: randomUUID(),
           p_model: "synthetic-test-only",
@@ -251,6 +289,87 @@ test("43 source answers need no Claude; pagination, ownership and gateway failur
     expect(
       (await other.request.get(`/api/documents/${id}/analysis`)).status(),
     ).toBe(404);
+    const retried = await client.rpc("claim_document_solver_v2", {
+      p_document_id: id,
+    });
+    const retryRun = (retried.data as { runId: string }).runId;
+    const partialResult = {
+      id: missing,
+      choices: ["4", "5", "6", "7"],
+      correctChoice: "B",
+      answerText: "5",
+      explanation: "2+3 bằng 5.",
+      confidence: 0.95,
+      status: "solved",
+      quizReady: true,
+      needsReview: false,
+    };
+    const changedSource = await client.rpc("complete_question_solutions_v2", {
+      p_document_id: id,
+      p_run_id: retryRun,
+      p_model: "synthetic-test-only",
+      p_results: [{ ...partialResult, choices: ["5", "4", "6", "7"] }],
+    });
+    expect(changedSource.error?.code).toBe("23514");
+    const completed = await client.rpc("complete_question_solutions_v2", {
+      p_document_id: id,
+      p_run_id: retryRun,
+      p_model: "synthetic-test-only",
+      p_results: [partialResult],
+    });
+    expect(completed.error).toBeNull();
+    expect(completed.data).toBe(1);
+    expect(
+      (
+        await client.rpc("finish_document_solver", {
+          p_document_id: id,
+          p_run_id: retryRun,
+        })
+      ).error,
+    ).toBeNull();
+    const saved = (await (
+      await page.request.get(`/api/documents/${id}/analysis`)
+    ).json()) as AnalysisView;
+    const solved = saved.solutions.find(
+      (item) => item.question_id === missing,
+    )!;
+    expect(solved.choices).toEqual(["4", "5", "6", "7"]);
+    expect(solved.answer_origin).toBe("ai_derived");
+    expect(solved.quiz_ready).toBe(true);
+    expect(
+      (
+        await client.rpc("claim_document_solver_v2", {
+          p_document_id: id,
+          p_regenerate: true,
+        })
+      ).data,
+    ).toEqual({ action: "ready" });
+    expect(
+      (
+        await page.request.post(`/api/documents/${id}/solve`, {
+          headers: { Origin: origin },
+          data: { regenerate: true },
+        })
+      ).status(),
+    ).toBe(400);
+    expect(
+      (
+        await page.request.post(`/api/documents/${id}/solve`, {
+          headers: { Origin: origin },
+        })
+      ).status(),
+    ).toBe(200);
+    await page.reload();
+    const cached = (await (
+      await page.request.get(`/api/documents/${id}/analysis`)
+    ).json()) as AnalysisView;
+    expect(
+      cached.solutions.find((item) => item.question_id === missing)?.updated_at,
+    ).toBe(solved.updated_at);
+    await page
+      .getByRole("button", { name: "Tạo bài trắc nghiệm", exact: true })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/setup\\?documentId=${id}`));
   } finally {
     expect(
       (

@@ -120,7 +120,7 @@ export async function runDocumentSolver(
             { results: response.results },
             inputs,
           );
-          const saved = await client.rpc("complete_question_solutions", {
+          const saved = await client.rpc("complete_question_solutions_v2", {
             p_document_id: documentId,
             p_run_id: runId,
             p_model: response.model || provider.model,

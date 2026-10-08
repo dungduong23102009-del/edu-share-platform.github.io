@@ -61,8 +61,10 @@ export function validateSolvedBatch(value: unknown, input: SolverInput[]) {
     const question = input.find((item) => item.id === result.id);
     if (!question) throw new SyntaxError("INVALID_SOLVER_OUTPUT");
     if (
-      question.choices.length === 4 &&
-      JSON.stringify(question.choices) !== JSON.stringify(result.choices)
+      question.choices.length > 0 &&
+      !question.choices.every(
+        (choice, index) => result.choices[index] === choice,
+      )
     )
       throw new SyntaxError("SOURCE_CHOICES_CHANGED");
     const validated = validateQuizQuestion({

@@ -62,6 +62,11 @@ export async function POST(
         regenerate = "regenerate" in fields && fields.regenerate === true;
       }
     }
+    if (regenerate)
+      return apiResponse(
+        { error: "Đáp án đã lưu được dùng lại; không tạo lại câu đã xử lý." },
+        400,
+      );
     const analysis = await client
       .from("document_analyses")
       .select("current_run_id")
@@ -79,7 +84,7 @@ export async function POST(
         503,
       );
     }
-    const claimed = await client.rpc("claim_document_solver", {
+    const claimed = await client.rpc("claim_document_solver_v2", {
       p_document_id: id,
       p_regenerate: regenerate,
     });

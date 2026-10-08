@@ -77,6 +77,82 @@ test("source answers take precedence and quiz validation excludes low confidence
     "true_false",
   );
 });
+test("compact labels and incomplete choices normalize without changing scientific case or sign", () => {
+  const parsed = normalizeQuestion({
+    questionText: "Dấu của Q? A.Q>0 B.Q<0 C.Q=0",
+    choices: ["A.Q>0", "B.Q<0", "C.Q=0"],
+    sourceExcerpt: "Dấu của Q?",
+  });
+  assert.equal(parsed.questionText, "Dấu của Q?");
+  assert.deepEqual(parsed.choices, ["Q>0", "Q<0", "Q=0"]);
+  assert.equal(parsed.originalType, "multiple_choice");
+  assert.deepEqual(parsed.parsingWarnings, []);
+  const wrongCase = normalizeQuestion({
+    questionText: "Đại lượng? A.Q B.A C.ΔU D.q",
+    choices: ["q", "A", "ΔU", "q"],
+  });
+  assert.ok(wrongCase.parsingWarnings.length);
+  const reversed = normalizeQuestion({
+    questionText: "Q < 0 và A > 0",
+    choices: [],
+    sourceExcerpt: "Q > 0 và A < 0",
+  });
+  assert.ok(reversed.parsingWarnings.length);
+  assert.equal(reversed.questionText, "Q < 0 và A > 0");
+  const scientific = normalizeQuestion({
+    questionText: "Đại lượng nào?",
+    choices: ["Q", "q", "ΔU", "U"],
+  });
+  assert.equal(sourceCorrectChoice("q", scientific.choices), "B");
+  assert.equal(
+    validateQuizQuestion({
+      ...scientific,
+      correctChoice: "B",
+      confidence: 0.95,
+      answerOrigin: "source",
+    }).quizReady,
+    true,
+  );
+});
+test("partial MCQs preserve source choices at their positions and only validated completion is ready", () => {
+  const input = [
+    {
+      id: "q1",
+      questionText: "Tính 2+3.",
+      choices: ["4", "5"],
+      originalType: "multiple_choice",
+      topic: null,
+      relevantTheory: null,
+      sourceExcerpt: null,
+    },
+  ];
+  const result = {
+    id: "q1",
+    correctChoice: "B",
+    answerText: "5",
+    choices: ["4", "5", "6", "7"],
+    explanation: "2+3 bằng 5.",
+    confidence: 0.95,
+    status: "solved",
+  };
+  assert.equal(
+    validateSolvedBatch({ results: [result] }, input)[0].quizReady,
+    true,
+  );
+  assert.throws(() =>
+    validateSolvedBatch(
+      { results: [{ ...result, choices: ["5", "4", "6", "7"] }] },
+      input,
+    ),
+  );
+  assert.equal(
+    validateSolvedBatch(
+      { results: [{ ...result, choices: ["4", "5", "5", "7"] }] },
+      input,
+    )[0].quizReady,
+    false,
+  );
+});
 test("solver validates identifiers, answer choice, explanation and source choice fidelity; input excludes profile data", () => {
   const input = [
     {

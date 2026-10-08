@@ -526,6 +526,10 @@ export type Database = {
         Args: { p_document_id: string; p_regenerate?: boolean };
         Returns: Json;
       };
+      claim_document_solver_v2: {
+        Args: { p_document_id: string; p_regenerate?: boolean };
+        Returns: Json;
+      };
       complete_document_analysis: {
         Args: {
           p_analysis: Json;
@@ -536,6 +540,15 @@ export type Database = {
         Returns: boolean;
       };
       complete_question_solutions: {
+        Args: {
+          p_document_id: string;
+          p_model: string;
+          p_results: Json;
+          p_run_id: string;
+        };
+        Returns: number;
+      };
+      complete_question_solutions_v2: {
         Args: {
           p_document_id: string;
           p_model: string;

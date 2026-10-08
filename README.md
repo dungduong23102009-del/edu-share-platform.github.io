@@ -110,6 +110,9 @@ Không đặt key vào biến NEXT_PUBLIC_ hoặc commit .env.local.
   Timeout mỗi request 60 giây, worker 180 giây, lease 4 phút.
 - Câu có đáp án nguồn được giữ nguyên. Câu thiếu đáp án có bốn lựa chọn giữ
   nguyên thứ tự/nội dung lựa chọn; câu ngắn/bài tính chỉ được chuyển nếu phù hợp.
+  Câu có 1–3 lựa chọn cũng được bổ sung thành MCQ nếu phù hợp, giữ các lựa chọn
+  nguồn tại đúng vị trí. Parser hỗ trợ nhãn sát nội dung như A.Q>0 và kiểm tra
+  công thức theo thứ tự/case/dấu, không chỉ sự hiện diện của ký hiệu.
   Câu đúng/sai, lý thuyết hoặc chưa xác định không được tự chuyển ở bước này.
 - Validator yêu cầu stem hợp lệ, bốn lựa chọn khác nhau, đáp án A–D, không có
   cảnh báo parser, confidence ít nhất 0.65 và lời giải ngắn nếu là AI. Confidence
@@ -119,6 +122,9 @@ Không đặt key vào biến NEXT_PUBLIC_ hoặc commit .env.local.
   model do gateway trả về, confidence, explanation và quiz_ready. Các RPC cũ,
   dữ liệu Gemini và bảng questions không bị solver sửa. Gateway lỗi giữ tài liệu
   ready, đánh dấu solver_failed; các batch thành công vẫn được giữ.
+- RPC v2 chỉ claim câu chưa có model AI lưu trong DB; API không chấp nhận tạo
+  lại câu đã xử lý. Chuẩn hóa lại dữ liệu cũ chạy local, không gọi AI, update
+  theo timestamp để không ghi đè worker đang xử lý.
 - Topics thu gọn câu nguồn, phân trang 10 câu. Tạo bài trắc nghiệm đưa câu hợp
   lệ theo chủ đề vào /setup → /quiz → /result → /review và làm lại câu sai.
   Bài luyện tập, chấm điểm và lịch sử vẫn chạy trong trình duyệt/sessionStorage;
