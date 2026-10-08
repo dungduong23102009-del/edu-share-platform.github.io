@@ -4,6 +4,41 @@ const { normalizeQuestion, sourceCorrectChoice, validateQuizQuestion } =
   await import("../src/lib/ai/question-validation.ts");
 const { validateSolvedBatch, solverInputSchema } =
   await import("../src/lib/ai/solver-schemas.ts");
+test("garbled symbols, image dependencies and AI confidence below .85 cannot become ready", () => {
+  for (const prompt of ["ΔU = � + Q", "Dựa vào hình vẽ, tính lực?"]) {
+    const normalized = normalizeQuestion({
+      questionText: prompt,
+      choices: ["1", "2", "3", "4"],
+    });
+    assert.ok(normalized.parsingWarnings.length);
+    assert.equal(
+      validateQuizQuestion({
+        ...normalized,
+        correctChoice: "A",
+        answerOrigin: "source",
+        confidence: 0.99,
+      }).quizReady,
+      false,
+    );
+  }
+  const normalized = normalizeQuestion({
+    questionText: "Tính 2+2?",
+    choices: ["3", "4", "5", "6"],
+  });
+  const input = {
+    ...normalized,
+    correctChoice: "B",
+    answerOrigin: "ai_derived",
+    confidence: 0.84,
+    status: "solved",
+    explanation: "2+2=4.",
+  };
+  assert.equal(validateQuizQuestion(input).quizReady, false);
+  assert.equal(
+    validateQuizQuestion({ ...input, confidence: 0.85 }).quizReady,
+    true,
+  );
+});
 test("choice block is split only on a full exact match and source text/symbols remain intact", () => {
   const symbols = "ΔU = Q + A; > < ≥ ≤ → ⇌ ± °C 10⁻³ m/s² √ ∫";
   const raw = `Công thức nào đúng? ${symbols}\nA. ΔU = Q + A\nB. ΔU = Q - A\nC. ΔU = A - Q\nD. ΔU = 0`;

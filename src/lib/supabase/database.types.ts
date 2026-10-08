@@ -355,6 +355,7 @@ export type Database = {
           id: string;
           is_correct: boolean | null;
           question_id: string;
+          quiz_id: string;
           selected_answer: string | null;
         };
         Insert: {
@@ -363,6 +364,7 @@ export type Database = {
           id?: string;
           is_correct?: boolean | null;
           question_id: string;
+          quiz_id: string;
           selected_answer?: string | null;
         };
         Update: {
@@ -371,6 +373,7 @@ export type Database = {
           id?: string;
           is_correct?: boolean | null;
           question_id?: string;
+          quiz_id?: string;
           selected_answer?: string | null;
         };
         Relationships: [
@@ -379,13 +382,6 @@ export type Database = {
             columns: ["attempt_id"];
             isOneToOne: false;
             referencedRelation: "quiz_attempts";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "quiz_answers_question_id_fkey";
-            columns: ["question_id"];
-            isOneToOne: false;
-            referencedRelation: "questions";
             referencedColumns: ["id"];
           },
         ];
@@ -568,6 +564,10 @@ export type Database = {
       finish_document_solver: {
         Args: { p_document_id: string; p_error?: string; p_run_id: string };
         Returns: undefined;
+      };
+      quiz_command: {
+        Args: { p_action: string; p_id: string; p_payload?: Json };
+        Returns: Json;
       };
     };
     Enums: {

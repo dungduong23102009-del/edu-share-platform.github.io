@@ -135,8 +135,8 @@ export function DocumentTopics({ view }: { view: AnalysisView }) {
   ).length;
   const parsing = solutions.filter(
     (item) =>
-      item.solver_status === "needs_review" ||
-      (item.answer_origin === "source" && !item.quiz_ready),
+      !item.quiz_ready &&
+      (item.needs_review || item.solver_status === "uncertain"),
   ).length;
   const unsupported = solutions.filter(
     (item) => item.solver_status === "unsupported",
@@ -159,8 +159,16 @@ export function DocumentTopics({ view }: { view: AnalysisView }) {
       </p>
       <p className="small-note">
         {solutions.filter((item) => item.quiz_ready).length} sẵn sàng ·{" "}
-        {needsAI} cần AI giải · {parsing} cần kiểm tra nguồn · {unsupported}{" "}
-        không hỗ trợ{caution ? ` · ${caution} chưa đủ chắc chắn` : ""}
+        {
+          solutions.filter(
+            (item) =>
+              item.answer_origin === "ai_derived" &&
+              item.solver_status === "solved",
+          ).length
+        }{" "}
+        câu được AI giải · {needsAI} cần AI giải · {parsing} cần kiểm tra nguồn
+        · {unsupported} không hỗ trợ
+        {caution ? ` · ${caution} chưa đủ chắc chắn` : ""}
       </p>
       {!!analysis.warnings.length && (
         <aside className="source-note" aria-label="Lưu ý khi đọc tài liệu">

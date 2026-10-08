@@ -2,31 +2,30 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { studyActions } from "@/lib/study-store";
-import { shuffle } from "@/lib/quiz-logic";
-import type { Question } from "@/lib/types";
 import { PageHeader } from "./ui";
 export function DocumentQuizSetup({
   documentId,
-  title,
   documentName,
-  questions,
+  available,
+  topicIds,
 }: {
   documentId: string;
-  title: string;
   documentName: string;
-  questions: Question[];
+  available: number;
+  topicIds: string[];
 }) {
   const router = useRouter();
   const [count, setCount] = useState<number | "all">(10);
   const [random, setRandom] = useState(false);
-  const total =
-    count === "all" ? questions.length : Math.min(count, questions.length);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const [requestId] = useState(() => crypto.randomUUID());
+  const total = count === "all" ? available : Math.min(count, available);
   return (
     <div className="flow-page">
       <PageHeader
         title="Tạo bài trắc nghiệm"
-        description={`${documentName} · ${questions.length} câu đã qua kiểm tra`}
+        description={`${documentName} · ${available} câu đã qua kiểm tra`}
       />
       <div className="setup-panel">
         <section className="setup-section">
@@ -55,7 +54,7 @@ export function DocumentQuizSetup({
           </label>
         </section>
       </div>
-      {!questions.length && (
+      {!available && (
         <p className="source-note">
           Chưa có câu đủ điều kiện. Hãy kiểm tra nguồn hoặc tạo đáp án cho câu
           còn thiếu.
@@ -65,6 +64,16 @@ export function DocumentQuizSetup({
         Đáp án nguồn được giữ nguyên. Câu chưa chắc chắn hoặc chưa qua kiểm tra
         không được đưa vào bài.
       </p>
+      {count !== "all" && count > available && (
+        <p className="source-note">
+          Có {available} câu đủ điều kiện; bài sẽ dùng tối đa {total} câu.
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="error-note">
+          {error}
+        </p>
+      )}
       <div className="button-row">
         <Link
           href={`/topics?documentId=${documentId}`}
@@ -74,23 +83,34 @@ export function DocumentQuizSetup({
         </Link>
         <button
           className="button primary"
-          disabled={!total}
-          onClick={() => {
-            const chosen = (random ? shuffle(questions) : questions).slice(
-              0,
-              total,
-            );
-            if (
-              studyActions.startPreparedQuiz({
-                title,
-                documentName,
-                questions: chosen,
-              })
-            )
-              router.push("/quiz");
+          disabled={!total || pending}
+          onClick={async () => {
+            setPending(true);
+            setError("");
+            try {
+              const response = await fetch("/api/quizzes", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  id: requestId,
+                  documentId,
+                  topicIds,
+                  count,
+                  random,
+                }),
+              });
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error);
+              router.push(`/quiz?attemptId=${data.attemptId}`);
+            } catch (error) {
+              setError(
+                error instanceof Error ? error.message : "Chưa thể tạo bài.",
+              );
+              setPending(false);
+            }
           }}
         >
-          Bắt đầu {total} câu
+          {pending ? "Đang tạo bài…" : `Bắt đầu ${total} câu`}
         </button>
       </div>
     </div>

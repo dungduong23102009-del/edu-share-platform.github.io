@@ -154,13 +154,13 @@ test("validation, failed processing, retry and empty states", async ({
   ).toBeVisible();
   await page.goto("/history");
   await expect(
-    page.getByRole("heading", { name: "Chưa có bài trắc nghiệm gần đây" }),
+    page.getByRole("heading", { name: "Chưa có bài luyện tập" }),
   ).toBeVisible();
 });
 
 test("responsive audit: desktop, laptop, tablet, phone", async ({ page }) => {
   test.setTimeout(180000);
-  await page.goto("/history");
+  await page.goto("/history?demo=1");
   await page.locator(".history-row").first().click();
   await expect(page).toHaveURL(/\/result/);
   await expect(page.locator(".score-ring strong")).toHaveText("8 / 10");

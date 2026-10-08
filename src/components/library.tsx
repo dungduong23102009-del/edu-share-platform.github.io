@@ -108,10 +108,11 @@ export function SettingsPage() {
       <div className="settings-panel">
         <h2>Phiên học của bạn</h2>
         <p>
-          Tài liệu được lưu trong tài khoản Supabase. Tiến độ và kết quả bài mẫu
-          được lưu trong phiên trình duyệt. Tải lại trang không làm mất bài;
-          đóng phiên trình duyệt có thể xóa dữ liệu. Nếu trình duyệt chặn lưu
-          trữ, dữ liệu chỉ được giữ trong bộ nhớ khi ứng dụng còn mở.
+          Tài liệu, tiến độ và kết quả bài trắc nghiệm từ tài liệu được lưu
+          trong tài khoản Supabase. Tiến độ và kết quả bài mẫu được lưu trong
+          phiên trình duyệt. Tải lại trang không làm mất bài; đóng phiên trình
+          duyệt có thể xóa dữ liệu. Nếu trình duyệt chặn lưu trữ, dữ liệu chỉ
+          được giữ trong bộ nhớ khi ứng dụng còn mở.
         </p>
         {process.env.NODE_ENV === "development" && (
           <details className="dev-tools">

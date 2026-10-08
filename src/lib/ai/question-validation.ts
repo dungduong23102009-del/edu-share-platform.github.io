@@ -22,6 +22,13 @@ export function scientificWarnings(
   source: string | null | undefined,
   parsed: string,
 ) {
+  if (
+    /[\uFFFD\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(parsed) ||
+    (source && /\uFFFD/.test(source))
+  )
+    return [
+      "Văn bản hoặc công thức có ký tự hỏng; cần đối chiếu tài liệu gốc.",
+    ];
   if (!source) return [];
   const tokens =
     source.match(/[Δ∆Α-Ωα-ω]|≥|≤|→|⇌|±|°C|m\/s²|[⁰¹²³⁴⁵⁶⁷⁸⁹⁻₀-₉]|√|∫|[=<>]/g) ||
@@ -84,6 +91,14 @@ export function normalizeQuestion(input: {
     );
   const parsedText = [questionText, ...choices].join(" ");
   warnings.push(...scientificWarnings(input.sourceExcerpt, parsedText));
+  if (
+    /như hình|hình (vẽ|bên|dưới|trên)|đồ thị (bên|dưới|trên)|the (figure|diagram)/i.test(
+      questionText,
+    )
+  )
+    warnings.push(
+      "Câu phụ thuộc hình ảnh; chưa đủ dữ liệu văn bản để tạo quiz.",
+    );
   let originalType: OriginalType =
     ORIGINAL_TYPES.includes(input.originalType as OriginalType) &&
     input.originalType !== "unknown"
@@ -161,7 +176,10 @@ export function validateQuizQuestion(input: {
   if (
     input.confidence === null ||
     !Number.isFinite(input.confidence) ||
-    input.confidence < SOLVER_SETTINGS.minimumConfidence ||
+    input.confidence <
+      (input.answerOrigin === "ai_derived"
+        ? SOLVER_SETTINGS.cautionConfidence
+        : SOLVER_SETTINGS.minimumConfidence) ||
     input.confidence > 1
   )
     errors.push("Độ tin cậy chưa đủ.");

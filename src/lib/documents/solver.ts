@@ -25,7 +25,8 @@ export async function runDocumentSolver(
   try {
     const provider = getSolverProvider();
     model = provider.model;
-    await provider.healthCheck(); // A small check before any question reaches the gateway.
+    // Health checks are explicit diagnostics. Solving uses the configured model directly
+    // without a redundant paid ping that can fail before any question is processed.
     const records = await client
       .from("question_solutions")
       .select("*")
@@ -112,7 +113,7 @@ export async function runDocumentSolver(
               originalType: job.original_type,
               topic,
               relevantTheory: theory || null,
-              sourceExcerpt: original.source_excerpt,
+              sourceExcerpt: original.source_excerpt?.slice(0, 600) || null,
             });
           });
           const response = await provider.solveBatch(inputs, signal);

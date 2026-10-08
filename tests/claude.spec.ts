@@ -193,7 +193,7 @@ test("live Gemini and Claude: preserve source answer, solve missing MCQ and calc
       .click();
     await expect(page).toHaveURL(/\/setup\?documentId=/);
     await page.getByRole("button", { name: "Bắt đầu 3 câu" }).click();
-    await expect(page).toHaveURL(/\/quiz$/);
+    await expect(page).toHaveURL(/\/quiz\?attemptId=/);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     expect(consoleErrors).toEqual([]);
     writeFileSync(
